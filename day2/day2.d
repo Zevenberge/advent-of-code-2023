@@ -18,6 +18,11 @@ class Game
     {
         return grabs.all!(g => g.isPossibleConfiguration(red, green, blue));
     }
+
+    int power() const
+    {
+        return grabs.map!(g => g.red).maxElement * grabs.map!(g => g.green).maxElement * grabs.map!(g => g.blue).maxElement;
+    }
 }
 
 class Grab
@@ -53,7 +58,6 @@ void main()
     File("input").byLineCopy()
         .filter!(line => line.length > 0)
         .map!(line => new Game(line))
-        .filter!(game => game.isPossibleConfiguration(12, 13, 14))
-        .map!(game => game.id)
+        .map!(game => game.power)
         .sum.writeln;
 }
