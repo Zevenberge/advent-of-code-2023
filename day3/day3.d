@@ -36,6 +36,11 @@ class PartNumber
     const Area area;
     const int value;
 
+    int y() @property pure const
+    {
+        return area.topLeft.y;
+    }
+
     override string toString() const
     {
         return value.to!string ~ '(' ~ area.topLeft.x.to!string ~ ','
@@ -54,6 +59,16 @@ class Symbol
     const char value;
     const Coordinate coordinate;
 
+    int y() @property pure const
+    {
+        return coordinate.y;
+    }
+
+    bool isGear() @property pure const
+    {
+        return value == '*';
+    }
+
     override string toString() const
     {
         return (value ~ "(" ~ coordinate.x.to!string ~ ","
@@ -61,9 +76,9 @@ class Symbol
     }
 }
 
-struct SymbolRange
+struct Range(T)
 {
-    this(const(Symbol)[] symbols, size_t startIndex) pure
+    this(const(T)[] symbols, size_t startIndex) pure
     {
         this.startIndex = startIndex;
         this.index = startIndex;
@@ -72,13 +87,13 @@ struct SymbolRange
 
     private size_t startIndex;
     private size_t index;
-    private const(Symbol)[] symbols;
+    private const(T)[] symbols;
     int startLine() @property pure const
     {
-        return symbols[startIndex].coordinate.y;
+        return symbols[startIndex].y;
     }
 
-    const(Symbol) front() @property pure const
+    const(T) front() @property pure const
     {
         return symbols[index];
     }
@@ -90,43 +105,46 @@ struct SymbolRange
 
     bool empty() @property pure const
     {
-        return index >= symbols.length || symbols[index].coordinate.y > (startLine + 2);
+        return index >= symbols.length || symbols[index].y > (startLine + 2);
     }
 }
 
-struct SymbolIndex
+alias PartNumberIndex = Index!PartNumber;
+alias SymbolIndex = Index!Symbol;
+
+struct Index(T)
 {
-    this(const(Symbol)[] symbols, size_t startIndex)
+    this(const(T)[] symbols, size_t startIndex)
     {
         this.startIndex = startIndex;
         this.symbols = symbols;
     }
 
     private size_t startIndex;
-    private const(Symbol)[] symbols;
+    private const(T)[] symbols;
     int startLine() @property pure const
     {
-        return symbols[startIndex].coordinate.y;
+        return symbols[startIndex].y;
     }
 
-    SymbolIndex moveToNextLine()
+    Index!T moveToNextLine(int desiredLine)
     {
+        if(startLine >= desiredLine) return this;
         size_t index = startIndex;
-        const desiredLine = startLine + 1;
-        foreach (const(Symbol) key; symbols[startIndex .. $])
+        foreach (key; symbols[startIndex .. $])
         {
-            if(key.coordinate.y >= desiredLine)
+            if(key.y >= desiredLine)
             {
-                return SymbolIndex(symbols, index);
+                return Index!T(symbols, index);
             }
             index++;
         }
         assert(false, "Could not find symbols for next line.");
     }
 
-    SymbolRange range() @property pure const
+    Range!T range() @property pure const
     {
-        return SymbolRange(symbols, startIndex);
+        return Range!T(symbols, startIndex);
     }
 }
 
@@ -187,13 +205,26 @@ class Schematic
         foreach (partNumber; partNumbers)
         {
             const lookupArea = partNumber.area.adjescent;
-            if(lookupArea.topLeft.y > index.startLine)
-            {
-                index = index.moveToNextLine();
-            }
+            index = index.moveToNextLine(lookupArea.topLeft.y);
             if(index.range.any!(symbol => lookupArea.contains(symbol.coordinate)))
             {
                 sum += partNumber.value;
+            }
+        }
+        return sum;
+    }
+
+    int sumOfGearRatios()
+    {
+        auto index = PartNumberIndex(partNumbers, 0);
+        int sum = 0;
+        foreach(symbol; symbols.filter!(s => s.isGear))
+        {
+            index = index.moveToNextLine(symbol.y - 1);
+            const adjescentPartNumbers = index.range.filter!(pn => pn.area.adjescent.contains(symbol.coordinate)).array;
+            if(adjescentPartNumbers.length == 2)
+            {
+                sum += adjescentPartNumbers[0].value * adjescentPartNumbers[1].value;
             }
         }
         return sum;
@@ -209,6 +240,6 @@ void main()
 {
     const lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     auto schematic = new Schematic(lines);
-    schematic.sumOfPartNumbersAdjescentToSymbols.writeln;
+    schematic.sumOfGearRatios.writeln;
 
 }
