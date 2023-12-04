@@ -17,9 +17,14 @@ class Card
 
     int points() @property pure const
     {
-        const amountOfMatches = numbersYouHave.filter!(n => winningNumbers.any!(w => w == n)).count;
+        const amountOfMatches = this.amountOfMatches;
         if(amountOfMatches == 0) return 0;
         return cast(int)2.pow(amountOfMatches - 1);
+    }
+
+    int amountOfMatches() @property pure const
+    {
+        return cast(int)numbersYouHave.filter!(n => winningNumbers.any!(w => w == n)).count;
     }
 }
 
@@ -37,5 +42,23 @@ void main()
 {
     const cards = File("input").byLineCopy().havingContent
         .map!(line => new Card(line)).array;
-    cards.map!(c => c.points).sum.writeln;
+
+    auto amountOfCards = cards.map!(_ => 1).array;
+    void handleCard(const Card card)
+    {
+        auto amountOfMatches = card.amountOfMatches;
+        auto copiesOfThisCard = amountOfCards[card.cardNumber - 1];
+        for(int i = 0; i < amountOfMatches; i++)
+        {
+            const index = card.cardNumber + i;
+            amountOfCards[index] = amountOfCards[index] + copiesOfThisCard;
+        }
+    }
+
+    foreach (card; cards)
+    {
+        handleCard(card);
+    }
+
+    amountOfCards.sum.writeln;
 }
