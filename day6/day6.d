@@ -1,17 +1,17 @@
 import std;
 
-int[] numbers(string line)
+long[] numbers(string line)
 {
     const parts = line.splitter(':').array;
-    return parts[1].splitter(' ').filter!(w => w.length > 0).map!(w => w.to!int).array;
+    return [parts[1].filter!(c => c != ' ').array.to!long];
 }
 
 struct Margin
 {
-    int minTime;
-    int maxTime;
+    long minTime;
+    long maxTime;
 
-    int amountOfWinningOptions() @property pure const
+    long amountOfWinningOptions() @property pure const
     {
         return maxTime - minTime + 1;
     }
@@ -19,8 +19,8 @@ struct Margin
 
 struct Race
 {
-    int time;
-    int distance;
+    long time;
+    long distance;
 
     Margin margin() @property const
     {
@@ -30,8 +30,8 @@ struct Race
             // Hack for when the discriminator is an int, which doesn't count.
             discriminator -= 0.5;
         }
-        int lowest = cast(int) ceil(0.5 * time - discriminator);
-        int highest = cast(int) floor(0.5 * time + discriminator);
+        long lowest = cast(long) ceil(0.5 * time - discriminator);
+        long highest = cast(long) floor(0.5 * time + discriminator);
         return Margin(lowest, highest);
     }
 }
@@ -47,7 +47,7 @@ void main()
         races ~= Race(time, distances[i]);
     }
     auto options = races.map!(r => r.margin);
-    int result = 1;
+    long result = 1;
     foreach(option; options)
     {
         result *= option.amountOfWinningOptions;
