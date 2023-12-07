@@ -11,7 +11,7 @@ enum HandType
     highCard,
 }
 
-const cards = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2', '1'];
+const cards = ['A', 'K', 'Q', 'T', '9', '8', '7', '6', '5', '4', '3', '2', 'J'];
 
 bool hasAmountOfMatches(uint[dchar] cards, size_t number)
 {
@@ -41,14 +41,31 @@ HandType handType(uint[dchar] cards)
     return HandType.highCard;
 }
 
+uint[dchar] groupCards(dchar[] hand)
+{
+    auto sorted = hand.array.sort!((a, b) => a < b, SwapStrategy.stable);
+    return sorted.group.assocArray;
+}
+
+HandType handType(string hand)
+{
+    auto bestType = HandType.highCard;
+    foreach(replacementCard; cards)
+    {
+        auto replaced = hand.map!(c => c == 'J' ? replacementCard : c).array;
+        auto newHandType = replaced.groupCards.handType;
+        if(newHandType < bestType) bestType = newHandType;
+    }
+    return bestType;
+}
+
 class Hand
 {
     this(string line)
     {
         rawValue ~= line[0..5];
         bid = line[6..$].to!size_t;
-        auto sorted = rawValue.array.sort!((a, b) => a < b, SwapStrategy.stable);
-        handType = sorted.group.assocArray.handType;
+        handType = rawValue.handType;
     }
 
     const HandType handType;
