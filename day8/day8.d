@@ -12,8 +12,10 @@ class Map
     }
 
     Node[string] nodes;
+    int[string] stepsToEnd;
+    Shortcut[string] shortcuts;
 
-    auto opIndex(string index) inout pure
+    auto opIndex(string index) const pure
     {
         return nodes[index];
     }
@@ -21,6 +23,35 @@ class Map
     auto values() const pure
     {
         return nodes.values;
+    }
+
+    void addShortcut(const Node start, Shortcut shortcut)
+    {
+        if(start.label in shortcuts) return;
+        shortcuts[start.label] = shortcut;
+    }
+
+    bool tryGetShortcut(const Node start, out Shortcut shortcut)
+    {
+        if(start.label in shortcuts)
+        {
+            shortcut = shortcuts[start.label];
+            return true;
+        }
+        shortcut = null;
+        return false;
+    }
+
+    Shortcut amountOfSteps(const Node node, const string path)
+    {
+        Shortcut shortcut;
+        if(tryGetShortcut(node, shortcut))
+        {
+            return shortcut;
+        }
+        shortcut = new Shortcut(node, node.amountOfSteps(path));
+        addShortcut(node, shortcut);
+        return shortcut;
     }
 }
 
@@ -78,6 +109,35 @@ template mapInPlace(alias fun)
     }
 }
 
+class Shortcut
+{
+    this(const Node node, int amountOfSteps)
+    {
+        this.node = node;
+        this.amountOfSteps = amountOfSteps;
+    }
+    const Node node;
+    const int amountOfSteps;
+}
+
+class WalkedPath
+{
+    this(const Node node)
+    {
+        currentNode = node;
+        totalAmountOfStepsWalked = 0; 
+    }
+
+    Rebindable!(const(Node)) currentNode;
+    size_t totalAmountOfStepsWalked;
+
+    void walk(const Shortcut shortcut)
+    {
+        currentNode = shortcut.node;
+        totalAmountOfStepsWalked += shortcut.amountOfSteps;
+    }
+}
+
 int amountOfSteps(const Node node, const string path)
 {
     Rebindable!(const(Node)) rNode = node;
@@ -90,24 +150,30 @@ int amountOfSteps(const Node node, const string path)
     return amountOfSteps;
 }
 
-int gcd(int a, int b)
+void iterate(WalkedPath[] paths, Map map, const string pathToTake)
 {
-    if(a == b) return a;
-    if(a > b) return gcd(b, a - b);
-    return gcd(a, b - a);
+    const leastStepsWalkedIndex = paths.minIndex!((a, b) => a.totalAmountOfStepsWalked < b.totalAmountOfStepsWalked);
+    auto pathToAdvance = paths[leastStepsWalkedIndex];
+    const shortcut = map.amountOfSteps(pathToAdvance.currentNode, pathToTake);
+    pathToAdvance.walk(shortcut);
 }
 
-int lcm(int a, int b)
+bool areDone(WalkedPath[] paths)
 {
-    return (a / gcd(a, b)) * b;
+    auto reference = paths[0].totalAmountOfStepsWalked;
+    return reference > 0 &&
+        paths[1 .. $].all!(p => p.totalAmountOfStepsWalked == reference);
 }
 
 void main()
 {
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     const path = lines[0];
-    const map = new Map(lines[1 .. $]);
-    const individualSteps = map.values.filter!(n => n.isStart).map!(n => n.amountOfSteps(path)).array;
-    individualSteps.writeln;
-    individualSteps.fold!((a, b) => lcm(a, b))(1).writeln;
+    auto map = new Map(lines[1 .. $]);
+    auto walkedPaths = map.values.filter!(n => n.isStart).map!(n => new WalkedPath(n)).array;
+    while(!walkedPaths.areDone)
+    {
+        walkedPaths.iterate(map, path);
+    }
+    walkedPaths[0].totalAmountOfStepsWalked.writeln;
 }
