@@ -17,6 +17,11 @@ class Map
     {
         return nodes[index];
     }
+
+    auto values() const pure
+    {
+        return nodes.values;
+    }
 }
 
 class Node
@@ -44,9 +49,14 @@ class Node
         return map[rightLabel];
     }
 
+    bool isStart() @property pure const
+    {
+        return label[2] == 'A';
+    }
+
     bool isEnd() @property pure const
     {
-        return label == "ZZZ";
+        return label[2] == 'Z';
     }
 }
 
@@ -57,17 +67,47 @@ const(Node) navigate(const Node node, char direction)
     assert(false);
 }
 
+template mapInPlace(alias fun)
+{
+    void mapInPlace(T)(T[] input)
+    {
+        for(size_t i = 0; i < input.length; ++i)
+        {
+            input[i] = fun(input[i]);
+        }
+    }
+}
+
+int amountOfSteps(const Node node, const string path)
+{
+    Rebindable!(const(Node)) rNode = node;
+    auto amountOfSteps = 0;
+    while(!rNode.isEnd)
+    {
+        rNode = rNode.navigate(path[amountOfSteps % path.length]);
+        amountOfSteps++;
+    }
+    return amountOfSteps;
+}
+
+int gcd(int a, int b)
+{
+    if(a == b) return a;
+    if(a > b) return gcd(b, a - b);
+    return gcd(a, b - a);
+}
+
+int lcm(int a, int b)
+{
+    return (a / gcd(a, b)) * b;
+}
+
 void main()
 {
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     const path = lines[0];
     const map = new Map(lines[1 .. $]);
-    Rebindable!(const(Node)) node = map["AAA"];
-    auto amountOfSteps = 0;
-    while(!node.isEnd)
-    {
-        node = node.navigate(path[amountOfSteps % path.length]);
-        amountOfSteps++;
-    }
-    amountOfSteps.writeln;
+    const individualSteps = map.values.filter!(n => n.isStart).map!(n => n.amountOfSteps(path)).array;
+    individualSteps.writeln;
+    individualSteps.fold!((a, b) => lcm(a, b))(1).writeln;
 }
