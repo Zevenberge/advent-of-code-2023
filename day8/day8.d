@@ -138,6 +138,73 @@ class WalkedPath
     }
 }
 
+struct DistanceToEndNodes
+{
+    static DistanceToEndNodes unit()
+    {
+        return DistanceToEndNodes([0], 1);
+    }
+
+    size_t[] offsetsToEndNode;
+    size_t loopSize;
+
+    DistanceToEndNodes merge(DistanceToEndNodes other)
+    {
+        size_t[] intersections = other.offsetsToEndNode.map!(otherOffset => 
+            offsetsToEndNode.map!(thisOffset => 
+                firstIntersection(otherOffset, other.loopSize, thisOffset, this.loopSize)
+                )).joiner.filter!(intersection => intersection != noMatch).array;
+        return DistanceToEndNodes(intersections, lcm(loopSize, other.loopSize));
+    }
+}
+
+enum noMatch = cast(size_t)-1;
+
+size_t firstIntersection(size_t offsetA, size_t loopSizeA, size_t offsetB, size_t loopSizeB)
+{
+    // a0 + a1 * m = b0 + b1 * n
+    // a0 + a1 * m = b0 + b1 * (m + n'), m e N, n' e [-m, +Inf)
+    // (a1 - b1) * m + a0 - b0 = b1 * n'
+    // has solution iff
+    // ( (a1 - b1) * m + (a0 - b0) ) mod b1 = 0
+    // Optimised for b1 < a1;
+    size_t a0, a1, b0, b1; 
+    if(loopSizeA < loopSizeB)
+    {
+        b0 = offsetA;
+        b1 = loopSizeA;
+        a0 = offsetB;
+        a1 = loopSizeB;
+    }
+    else
+    {
+        b0 = offsetB;
+        b1 = loopSizeB;
+        a0 = offsetA;
+        a1 = loopSizeA;
+    }
+    for(size_t m = 0; m < b1; m++)
+    {
+        const diff = (a1 - b1)*m + (a0 - b0);
+        if(diff.abs % b1 == 0)
+        {
+            return a0 + a1 * m;
+        }
+    }
+    return noMatch;
+}
+
+// TODO: publish on NPM
+bool isEven(size_t number)
+{
+    return number % 2 == 0;
+}
+
+bool isOdd(size_t number)
+{
+    return !number.isEven;
+}
+
 int amountOfSteps(const Node node, const string path)
 {
     Rebindable!(const(Node)) rNode = node;
@@ -148,6 +215,27 @@ int amountOfSteps(const Node node, const string path)
         amountOfSteps++;
     }
     return amountOfSteps;
+}
+
+DistanceToEndNodes determineLoopPath(const Node node, Map map, const string pathToTake)
+{
+    string[] nodes;
+    size_t[] steps = [0];
+    Rebindable!(const(Node)) rNode = node;
+    while(true)
+    {
+        const shortcut = map.amountOfSteps(rNode, pathToTake);
+        const index = nodes.countUntil!(n => n == shortcut.node.label);
+        const currentlyWalkedDistance = steps[$-1] + shortcut.amountOfSteps; 
+        if(index != -1)
+        {
+            const initialOffsetToNode = steps[index + 1];
+            const loopLength = currentlyWalkedDistance - initialOffsetToNode;
+            return DistanceToEndNodes(steps[1 .. $], loopLength);
+        }
+        steps ~= currentlyWalkedDistance;
+        nodes ~= shortcut.node.label;
+    }
 }
 
 void iterate(WalkedPath[] paths, Map map, const string pathToTake)
@@ -170,10 +258,13 @@ void main()
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     const path = lines[0];
     auto map = new Map(lines[1 .. $]);
-    auto walkedPaths = map.values.filter!(n => n.isStart).map!(n => new WalkedPath(n)).array;
+    auto loops = map.values.filter!(n => n.isStart).map!(n => n.determineLoopPath(map, path)).array;
+    writeln(loops);
+    loops.map!(l => l.loopSize).fold!((a, b) => lcm(a, b))(cast(size_t)1).writeln;
+    /*auto walkedPaths = map.values.filter!(n => n.isStart).map!(n => new WalkedPath(n)).array;
     while(!walkedPaths.areDone)
     {
         walkedPaths.iterate(map, path);
     }
-    walkedPaths[0].totalAmountOfStepsWalked.writeln;
+    walkedPaths[0].totalAmountOfStepsWalked.writeln;*/
 }
