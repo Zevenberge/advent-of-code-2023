@@ -194,17 +194,6 @@ size_t firstIntersection(size_t offsetA, size_t loopSizeA, size_t offsetB, size_
     return noMatch;
 }
 
-// TODO: publish on NPM
-bool isEven(size_t number)
-{
-    return number % 2 == 0;
-}
-
-bool isOdd(size_t number)
-{
-    return !number.isEven;
-}
-
 int amountOfSteps(const Node node, const string path)
 {
     Rebindable!(const(Node)) rNode = node;
@@ -238,33 +227,11 @@ DistanceToEndNodes determineLoopPath(const Node node, Map map, const string path
     }
 }
 
-void iterate(WalkedPath[] paths, Map map, const string pathToTake)
-{
-    const leastStepsWalkedIndex = paths.minIndex!((a, b) => a.totalAmountOfStepsWalked < b.totalAmountOfStepsWalked);
-    auto pathToAdvance = paths[leastStepsWalkedIndex];
-    const shortcut = map.amountOfSteps(pathToAdvance.currentNode, pathToTake);
-    pathToAdvance.walk(shortcut);
-}
-
-bool areDone(WalkedPath[] paths)
-{
-    auto reference = paths[0].totalAmountOfStepsWalked;
-    return reference > 0 &&
-        paths[1 .. $].all!(p => p.totalAmountOfStepsWalked == reference);
-}
-
 void main()
 {
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     const path = lines[0];
     auto map = new Map(lines[1 .. $]);
-    auto loops = map.values.filter!(n => n.isStart).map!(n => n.determineLoopPath(map, path)).array;
-    writeln(loops);
-    loops.map!(l => l.loopSize).fold!((a, b) => lcm(a, b))(cast(size_t)1).writeln;
-    /*auto walkedPaths = map.values.filter!(n => n.isStart).map!(n => new WalkedPath(n)).array;
-    while(!walkedPaths.areDone)
-    {
-        walkedPaths.iterate(map, path);
-    }
-    walkedPaths[0].totalAmountOfStepsWalked.writeln;*/
+    auto loops = map.values.filter!(n => n.isStart).map!(n => n.determineLoopPath(map, path));
+    loops.fold!((a, b) => a.merge(b))(DistanceToEndNodes.unit).writeln;
 }
