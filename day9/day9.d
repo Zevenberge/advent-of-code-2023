@@ -23,6 +23,20 @@ class Sequence
         return lastNumber + differences.predictNextNumber;
     }
 
+    int predictPreviousNumber() const
+    {
+        if(isFinalSequence)
+        {
+            return 0;
+        }
+        return firstNumber - differences.predictPreviousNumber;
+    }
+
+    int firstNumber() @property pure const
+    {
+        return numbers[0];
+    }
+
     int lastNumber() @property pure const
     {
         return numbers[$-1];
@@ -49,6 +63,6 @@ void main()
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0);
     auto sequences = lines.map!(line => line.splitter(' ').filter!(w => w.length > 0).map!(w => w.to!int).array)
         .map!(numbers => new Sequence(numbers));
-    sequences.map!(s => s.predictNextNumber).sum.writeln;
+    sequences.map!(s => s.predictPreviousNumber).sum.writeln;
 
 }
