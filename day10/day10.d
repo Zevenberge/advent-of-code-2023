@@ -16,7 +16,7 @@ struct Coordinate
         }
     }
 
-    Coordinate asInterpolation()
+    Coordinate asInterpolation() const
     {
         return Coordinate(x*2, y*2);
     }
@@ -105,7 +105,7 @@ class Pipe
 
     Pipe duplicateAsInterpopation()
     {
-        auto pipe = new Pipe(shape, coordinate);
+        auto pipe = new Pipe(shape, coordinate.asInterpolation);
         pipe.isNotEnclosed = this.isNotEnclosed;
         pipe.isPartOfPath = this.isPartOfPath;
         pipe.isReal = this.isReal;
@@ -117,7 +117,7 @@ class Pipe
     {
         char newShape;
         bool isOtherPartOfPath;
-        if(shape == 'F' || shape == 'L' || shape == '-')
+        if(shape == 'F' || shape == 'L' || shape == '-' || shape == 'S')
         {
             newShape = '-';
             isOtherPartOfPath = this.isPartOfPath;
@@ -138,7 +138,7 @@ class Pipe
     {
         char newShape;
         bool isOtherPartOfPath;
-        if(shape == 'F' || shape == '7' || shape == '|')
+        if(shape == 'F' || shape == '7' || shape == '|') // || shape == 'S')
         {
             newShape = '|';
             isOtherPartOfPath = this.isPartOfPath;
@@ -186,30 +186,40 @@ Pipe[] toPipes(string[] lines)
     return pipes;
 }
 
+size_t width(Pipe[] pipes)
+{
+    return pipes.map!(p => p.coordinate.x).maxElement;
+}
+
+size_t height(Pipe[] pipes)
+{
+    return pipes.map!(p => p.coordinate.y).maxElement;
+}
+
 void printResultingMap(Pipe[] all)
 {
-    size_t y = 0;
-    foreach(pipe; all)
+    const width = all.width;
+    const height = all.height;
+    for(size_t y = 0; y < height; y++)
     {
-        if(pipe.coordinate.y > y)
+        for(size_t x = 0; x < width; x++)
         {
-            y = pipe.coordinate.y;
-            writeln;
+            auto pipe = all.at(Coordinate(x, y));
+            if(pipe.isPartOfPath)
+            {
+                pipe.shape.write;
+            }
+            else if(pipe.isEnclosed)
+            {
+                '.'.write;
+            }
+            else
+            {
+                ' '.write;
+            }
         }
-        if(pipe.isPartOfPath)
-        {
-            pipe.shape.write;
-        }
-        else if(pipe.isEnclosed)
-        {
-            '.'.write;
-        }
-        else
-        {
-            ' '.write;
-        }
+        writeln;
     }
-    writeln;
 }
 
 void propagateUnenclosedTiles(Pipe[] pipes, Pipe pipe)
@@ -273,14 +283,17 @@ size_t findEnclosedTiles(Pipe[] pipes)
 {
     pipes[0].isNotEnclosed = true;
     pipes.determineEnclosedTilesByInkspread;
+    pipes.printResultingMap;
     pipes = pipes.interpolate;
+    pipes.printResultingMap;
     pipes.determineEnclosedTilesByInkspread;
+    pipes.printResultingMap;
     return pipes.amountOfEnclosedTiles;
 }
 
 void main()
 {
-    auto pipes = File("testinput").byLineCopy().filter!(line => line.length > 0).array.toPipes;
+    auto pipes = File("input").byLineCopy().filter!(line => line.length > 0).array.toPipes;
     auto currentPipe = pipes.filter!(p => p.isStart).front;
     currentPipe.isPartOfPath = true;
     auto directionToWalk = pipes.legalNeighbours(currentPipe).front;
@@ -294,9 +307,6 @@ void main()
         stepsWalked += 1;
     }
     while(!currentPipe.isStart);
-    pipes.printResultingMap;
-    //pipes[0].isNotEnclosed = true;
-    //pipes.determineEnclosedTilesByInkspread;
     pipes.findEnclosedTiles.writeln;
     pipes.printResultingMap;
 }
