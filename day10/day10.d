@@ -53,12 +53,35 @@ class Pipe
     this(char shape, Coordinate coordinate)
     {
         this.shape = shape;
+        this.isStart = shape == 'S';
         this.coordinate = coordinate;
         this.isReal = true;
     }
 
-    const char shape;
+    char shape;
+    void replaceStart(Pipe[] pipes)
+    {
+        auto directions = pipes.legalNeighbours(this).array;
+        directions.sort;
+        if(directions[0] == Direction.top)
+        {
+            if(directions[1] == Direction.bottom) shape = '|';
+            if(directions[1] == Direction.left) shape = 'J';
+            if(directions[1] == Direction.right) shape = 'L';
+        }
+        else if(directions[0] == Direction.bottom)
+        {
+            if(directions[1] == Direction.left) shape = '7';
+            if(directions[1] == Direction.right) shape = 'F';
+        }
+        else
+        {
+            shape = '-';
+        }
+    }
     const Coordinate coordinate;
+
+    const bool isStart;
 
     bool isPartOfPath;
     bool isNotEnclosed;
@@ -73,11 +96,6 @@ class Pipe
             return copy.isEnclosed;
         }
         return !isNotEnclosed;
-    }
-
-    bool isStart() @property pure const
-    {
-        return shape == 'S';
     }
 
     Direction[] possibleDirections() @property const
@@ -154,6 +172,12 @@ class Pipe
         pipe.isNotEnclosed = this.isNotEnclosed;
         return pipe;
     }
+
+    bool isAngryPipe()
+    {
+        return isPartOfPath && 
+            shape == '|';
+    }
 }
 
 Pipe at(Pipe[] pipes, Coordinate coordinate)
@@ -209,7 +233,7 @@ void printResultingMap(Pipe[] all)
             {
                 pipe.shape.write;
             }
-            else if(pipe.isEnclosed)
+            else if(!pipe.isNotEnclosed)
             {
                 '.'.write;
             }
@@ -279,6 +303,15 @@ void determineEnclosedTilesByInkspread(Pipe[] pipes)
     }
 }
 
+bool shouldBeEnclosed(Pipe pipe, Pipe[] pipes)
+{
+    if(pipe.isPartOfPath) return false;
+    return iota(0, pipe.coordinate.x)
+        .map!(x => Coordinate(x, pipe.coordinate.y))
+        .filter!(c => pipes.at(c).isAngryPipe)
+        .count % 2 != 0;
+}
+
 size_t findEnclosedTiles(Pipe[] pipes)
 {
     pipes[0].isNotEnclosed = true;
@@ -291,12 +324,49 @@ size_t findEnclosedTiles(Pipe[] pipes)
     return pipes.amountOfEnclosedTiles;
 }
 
+size_t countEnclosedTilesInLine(Pipe[] pipes)
+{
+    enum noBend = '.';
+    size_t count = 0;
+    bool isEnclosed = false;
+    char lastBend = noBend;
+    foreach(pipe; pipes)
+    {
+        if(pipe.isPartOfPath)
+        {
+            if(pipe.shape == '|')
+            {
+                isEnclosed = !isEnclosed;
+            }
+            if(pipe.shape == 'F' || pipe.shape == 'L')
+            {
+                lastBend = pipe.shape;
+            }
+            if(pipe.shape == 'J' && lastBend == 'F')
+            {
+                isEnclosed = !isEnclosed;
+            }
+            if(pipe.shape == '7' && lastBend == 'L')
+            {
+                isEnclosed = !isEnclosed;
+            }
+        }
+        else if(isEnclosed)
+        {
+            count++;
+        }
+        pipe.isNotEnclosed = !isEnclosed;
+    }
+    return count;
+}
+
 void main()
 {
     auto pipes = File("input").byLineCopy().filter!(line => line.length > 0).array.toPipes;
     auto currentPipe = pipes.filter!(p => p.isStart).front;
     currentPipe.isPartOfPath = true;
-    auto directionToWalk = pipes.legalNeighbours(currentPipe).front;
+    currentPipe.replaceStart(pipes);
+    auto directionToWalk = currentPipe.possibleDirections[0];
     size_t stepsWalked = 0;
     do
     {
@@ -307,6 +377,8 @@ void main()
         stepsWalked += 1;
     }
     while(!currentPipe.isStart);
-    pipes.findEnclosedTiles.writeln;
-    pipes.printResultingMap;
+    iota(0, pipes.height)
+        .map!(y => pipes.filter!(p => p.coordinate.y == y).array.countEnclosedTilesInLine)
+        .sum.writeln;
+    // pipes.printResultingMap;
 }
