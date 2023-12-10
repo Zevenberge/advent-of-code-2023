@@ -15,6 +15,16 @@ struct Coordinate
             case Direction.right: return Coordinate(x + 1, y);
         }
     }
+
+    Coordinate asInterpolation()
+    {
+        return Coordinate(x*2, y*2);
+    }
+
+    Coordinate interpolate(Direction direction)
+    {
+        return this.asInterpolation.move(direction);
+    }
 }
 
 enum Direction
@@ -54,6 +64,17 @@ class Pipe
     bool isNotEnclosed;
     bool isReal;
 
+    Pipe copy;
+
+    bool isEnclosed()
+    {
+        if(copy)
+        {
+            return copy.isEnclosed;
+        }
+        return !isNotEnclosed;
+    }
+
     bool isStart() @property pure const
     {
         return shape == 'S';
@@ -80,6 +101,58 @@ class Pipe
     Direction otherEndFrom(Direction comingFrom) const
     {
         return possibleDirections.filter!(d => d != comingFrom).front;
+    }
+
+    Pipe duplicateAsInterpopation()
+    {
+        auto pipe = new Pipe(shape, coordinate);
+        pipe.isNotEnclosed = this.isNotEnclosed;
+        pipe.isPartOfPath = this.isPartOfPath;
+        pipe.isReal = this.isReal;
+        copy = pipe;
+        return pipe;
+    }
+
+    Pipe interpolateRight()
+    {
+        char newShape;
+        bool isOtherPartOfPath;
+        if(shape == 'F' || shape == 'L' || shape == '-')
+        {
+            newShape = '-';
+            isOtherPartOfPath = this.isPartOfPath;
+        }
+        else
+        {
+            newShape = '.';
+            isOtherPartOfPath = false;
+        }
+        auto pipe = new Pipe(newShape, this.coordinate.move(Direction.right));
+        pipe.isPartOfPath = isOtherPartOfPath;
+        pipe.isReal = false;
+        pipe.isNotEnclosed = this.isNotEnclosed;
+        return pipe;
+    }
+
+    Pipe interpolateDown()
+    {
+        char newShape;
+        bool isOtherPartOfPath;
+        if(shape == 'F' || shape == '7' || shape == '|')
+        {
+            newShape = '|';
+            isOtherPartOfPath = this.isPartOfPath;
+        }
+        else
+        {
+            newShape = '.';
+            isOtherPartOfPath = false;
+        }
+        auto pipe = new Pipe(newShape, this.coordinate.move(Direction.bottom));
+        pipe.isPartOfPath = isOtherPartOfPath;
+        pipe.isReal = false;
+        pipe.isNotEnclosed = this.isNotEnclosed;
+        return pipe;
     }
 }
 
@@ -113,7 +186,7 @@ Pipe[] toPipes(string[] lines)
     return pipes;
 }
 
-void printResultingMap(Pipe[] all, Pipe[] walkedPath)
+void printResultingMap(Pipe[] all)
 {
     size_t y = 0;
     foreach(pipe; all)
@@ -123,13 +196,17 @@ void printResultingMap(Pipe[] all, Pipe[] walkedPath)
             y = pipe.coordinate.y;
             writeln;
         }
-        if(walkedPath.any!(p => p is pipe))
+        if(pipe.isPartOfPath)
         {
             pipe.shape.write;
         }
-        else
+        else if(pipe.isEnclosed)
         {
             '.'.write;
+        }
+        else
+        {
+            ' '.write;
         }
     }
     writeln;
@@ -162,6 +239,14 @@ void propagateUnenclosedTiles(Pipe[] pipes)
     }
 }
 
+Pipe[] interpolate(Pipe[] pipes)
+{
+    auto interpolatedPipes = pipes.map!(p => p.duplicateAsInterpopation).array;
+    interpolatedPipes ~= interpolatedPipes.map!(p => p.interpolateRight).array;
+    interpolatedPipes ~= interpolatedPipes.map!(p => p.interpolateDown).array;
+    return interpolatedPipes;
+}
+
 size_t amountOfUnenclosedTiles(Pipe[] pipes)
 {
     return pipes.count!(p => p.isNotEnclosed && !p.isPartOfPath);
@@ -169,12 +254,11 @@ size_t amountOfUnenclosedTiles(Pipe[] pipes)
 
 size_t amountOfEnclosedTiles(Pipe[] pipes)
 {
-    return pipes.count!(p => !p.isNotEnclosed && !p.isPartOfPath);
+    return pipes.count!(p => p.isReal && !p.isNotEnclosed && !p.isPartOfPath);
 }
 
-size_t findEnclosedTiles(Pipe[] pipes)
+void determineEnclosedTilesByInkspread(Pipe[] pipes)
 {
-    pipes[0].isNotEnclosed = true;
     auto amountOfUnenclosedTiles = pipes.amountOfUnenclosedTiles;
     while(true)
     {
@@ -183,15 +267,22 @@ size_t findEnclosedTiles(Pipe[] pipes)
         if(newAmountOfUnenclosedTimes == amountOfUnenclosedTiles) break;
         amountOfUnenclosedTiles = newAmountOfUnenclosedTimes;
     }
+}
+
+size_t findEnclosedTiles(Pipe[] pipes)
+{
+    pipes[0].isNotEnclosed = true;
+    pipes.determineEnclosedTilesByInkspread;
+    pipes = pipes.interpolate;
+    pipes.determineEnclosedTilesByInkspread;
     return pipes.amountOfEnclosedTiles;
 }
 
 void main()
 {
-    auto pipes = File("input").byLineCopy().filter!(line => line.length > 0).array.toPipes;
+    auto pipes = File("testinput").byLineCopy().filter!(line => line.length > 0).array.toPipes;
     auto currentPipe = pipes.filter!(p => p.isStart).front;
     currentPipe.isPartOfPath = true;
-    Pipe[] path = [currentPipe];
     auto directionToWalk = pipes.legalNeighbours(currentPipe).front;
     size_t stepsWalked = 0;
     do
@@ -200,10 +291,12 @@ void main()
         auto newCoord = currentPipe.coordinate.move(directionToWalk);
         currentPipe = pipes.at(newCoord);
         currentPipe.isPartOfPath = true;
-        path ~= currentPipe;
         stepsWalked += 1;
     }
     while(!currentPipe.isStart);
-    // pipes.printResultingMap(path);
+    pipes.printResultingMap;
+    //pipes[0].isNotEnclosed = true;
+    //pipes.determineEnclosedTilesByInkspread;
     pipes.findEnclosedTiles.writeln;
+    pipes.printResultingMap;
 }
