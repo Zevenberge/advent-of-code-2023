@@ -25,6 +25,8 @@ enum Direction
     right,
 }
 
+Direction[] allDirections = [Direction.top, Direction.bottom, Direction.right, Direction.left];
+
 Direction opposite(Direction direction)
 {
     final switch(direction)
@@ -42,17 +44,22 @@ class Pipe
     {
         this.shape = shape;
         this.coordinate = coordinate;
+        this.isReal = true;
     }
 
     const char shape;
     const Coordinate coordinate;
+
+    bool isPartOfPath;
+    bool isNotEnclosed;
+    bool isReal;
 
     bool isStart() @property pure const
     {
         return shape == 'S';
     }
 
-    Direction[] possibleDirections() @property pure const
+    Direction[] possibleDirections() @property const
     {
         if(shape == '.') return [];
         if(shape == '|') return [Direction.bottom, Direction.top];
@@ -61,16 +68,16 @@ class Pipe
         if(shape == '-') return [Direction.left, Direction.right];
         if(shape == 'F') return [Direction.right, Direction.bottom];
         if(shape == '7') return [Direction.left, Direction.bottom];
-        if(shape == 'S') return [Direction.top, Direction.bottom, Direction.right, Direction.left];
+        if(shape == 'S') return allDirections;
         assert(false);
     }
 
-    bool canEnterFrom(Direction direction) pure const
+    bool canEnterFrom(Direction direction) const
     {
         return possibleDirections.any!(d => d == direction);
     }
 
-    Direction otherEndFrom(Direction comingFrom) pure const
+    Direction otherEndFrom(Direction comingFrom) const
     {
         return possibleDirections.filter!(d => d != comingFrom).front;
     }
@@ -106,10 +113,85 @@ Pipe[] toPipes(string[] lines)
     return pipes;
 }
 
+void printResultingMap(Pipe[] all, Pipe[] walkedPath)
+{
+    size_t y = 0;
+    foreach(pipe; all)
+    {
+        if(pipe.coordinate.y > y)
+        {
+            y = pipe.coordinate.y;
+            writeln;
+        }
+        if(walkedPath.any!(p => p is pipe))
+        {
+            pipe.shape.write;
+        }
+        else
+        {
+            '.'.write;
+        }
+    }
+    writeln;
+}
+
+void propagateUnenclosedTiles(Pipe[] pipes, Pipe pipe)
+{
+    if(!pipe.isNotEnclosed) return;
+    if(pipe.isPartOfPath) return;
+    foreach(direction; allDirections)
+    {
+        auto coord = pipe.coordinate.move(direction);
+        auto otherPipe = pipes.at(coord);
+        if(otherPipe && !otherPipe.isPartOfPath)
+        {
+            otherPipe.isNotEnclosed = true;
+        }
+    }
+}
+
+void propagateUnenclosedTiles(Pipe[] pipes)
+{
+    foreach(pipe; pipes)
+    {
+        pipes.propagateUnenclosedTiles(pipe);
+    }
+    foreach_reverse(pipe; pipes)
+    {
+        pipes.propagateUnenclosedTiles(pipe);
+    }
+}
+
+size_t amountOfUnenclosedTiles(Pipe[] pipes)
+{
+    return pipes.count!(p => p.isNotEnclosed && !p.isPartOfPath);
+}
+
+size_t amountOfEnclosedTiles(Pipe[] pipes)
+{
+    return pipes.count!(p => !p.isNotEnclosed && !p.isPartOfPath);
+}
+
+size_t findEnclosedTiles(Pipe[] pipes)
+{
+    pipes[0].isNotEnclosed = true;
+    auto amountOfUnenclosedTiles = pipes.amountOfUnenclosedTiles;
+    while(true)
+    {
+        pipes.propagateUnenclosedTiles;
+        auto newAmountOfUnenclosedTimes = pipes.amountOfUnenclosedTiles;
+        if(newAmountOfUnenclosedTimes == amountOfUnenclosedTiles) break;
+        amountOfUnenclosedTiles = newAmountOfUnenclosedTimes;
+    }
+    return pipes.amountOfEnclosedTiles;
+}
+
 void main()
 {
     auto pipes = File("input").byLineCopy().filter!(line => line.length > 0).array.toPipes;
     auto currentPipe = pipes.filter!(p => p.isStart).front;
+    currentPipe.isPartOfPath = true;
+    Pipe[] path = [currentPipe];
     auto directionToWalk = pipes.legalNeighbours(currentPipe).front;
     size_t stepsWalked = 0;
     do
@@ -117,8 +199,11 @@ void main()
         directionToWalk = currentPipe.otherEndFrom(directionToWalk.opposite);
         auto newCoord = currentPipe.coordinate.move(directionToWalk);
         currentPipe = pipes.at(newCoord);
+        currentPipe.isPartOfPath = true;
+        path ~= currentPipe;
         stepsWalked += 1;
     }
     while(!currentPipe.isStart);
-    writeln(stepsWalked / 2);
+    // pipes.printResultingMap(path);
+    pipes.findEnclosedTiles.writeln;
 }
