@@ -1,7 +1,6 @@
 import std;
 
 alias Set = bool[size_t];
-alias SpaceMap = Space[Coordinate];
 
 struct Coordinate
 {
@@ -34,6 +33,9 @@ struct Space
     }
 }
 
+enum expandedSpace = 1_000_000;
+// enum expandedSpace = 2;
+
 class Observatory
 {
     this(string[] lines)
@@ -50,13 +52,11 @@ class Observatory
                     filledRows[y] = true;
                     galaxies ~= space;
                 }
-                spaceMap[space.coordinate] = space;
             }
         }
     }
 
     Space[] galaxies;
-    SpaceMap spaceMap;
     Set filledRows;
     Set filledColumns;
 
@@ -66,7 +66,7 @@ class Observatory
         {
             return 1;
         }
-        return 2;
+        return expandedSpace;
     }
 
     size_t estimateWidth(size_t x)
@@ -75,7 +75,7 @@ class Observatory
         {
             return 1;
         }
-        return 2;
+        return expandedSpace;
     }
 
     Space[2][] findAllPairsOfGalaxies()
