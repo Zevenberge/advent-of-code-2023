@@ -42,7 +42,10 @@ size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
         {
             if(groupings.length == 1)
             {
-                sum += 1;
+                if(springs[endIndex .. $].all!(s => s.isValidGroupSeperator))
+                {
+                    sum += 1;
+                }
             }
             else if(springs[endIndex].isValidGroupSeperator)
             {
@@ -80,7 +83,7 @@ class SpringLine
 
 void main()
 {
-    auto lines = File("testinput").byLineCopy().filter!(line => line.length > 0);
+    auto lines = File("input").byLineCopy().filter!(line => line.length > 0);
     auto springLines = lines.map!(l => new SpringLine(l));
     springLines.map!(s => s.amountOfPossibleArrangements).sum.writeln;
 }
