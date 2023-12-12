@@ -37,8 +37,6 @@ size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
     size_t sum = 0;
     for(size_t i = 0; i + width <= springs.length; i++)
     {
-        const isValidStart = i == 0 || springs[0 .. i].all!(s => s.isValidGroupSeperator);
-        if(!isValidStart) continue;
         const endIndex = i+groupings[0];
         if(springs[i .. endIndex].isValidGroup)
         {
@@ -50,6 +48,10 @@ size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
             {
                 sum += amountOfPossibleArrangements(springs[endIndex + 1 .. $], groupings[1 .. $]);
             }
+        }
+        if(springs[i].isFunctioning == damaged)
+        {
+            break;
         }
     }
     return sum;
@@ -78,7 +80,7 @@ class SpringLine
 
 void main()
 {
-    auto lines = File("input").byLineCopy().filter!(line => line.length > 0);
+    auto lines = File("testinput").byLineCopy().filter!(line => line.length > 0);
     auto springLines = lines.map!(l => new SpringLine(l));
     springLines.map!(s => s.amountOfPossibleArrangements).sum.writeln;
 }
