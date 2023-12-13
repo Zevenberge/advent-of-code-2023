@@ -12,13 +12,15 @@ class Reflection
     size_t getHorizontalMirrorLine()
     {
         size_t sum = 0;
-        for(int c = 1; (c + 1) < data.length; c++)
+        for(int c = 1; c < data.length; c++)
         {
             const boundary = min(c, data.length - c);
             bool reflectionFound = true;
             for(int i = 0; i < boundary; i++)
             {
-                if(data[c - i - 1] != data[c + i])
+                const lineA = data[c - i - 1];
+                const lineB = data[c + i];
+                if(lineA != lineB)
                 {
                     reflectionFound = false;
                     break;
@@ -29,13 +31,18 @@ class Reflection
                 sum += c; 
             }
         }
+        if(sum == 0)
+        {
+            printData;
+            writeln;
+        }
         return sum;
     }
 
     size_t getVerticalMirrorLine()
     {
         size_t sum = 0;
-        for(int c = 1; (c + 1) < data[0].length; c++)
+        for(int c = 1; c < data[0].length; c++)
         {
             bool reflectionFound = true;
             foreach(line; data)
@@ -57,6 +64,11 @@ class Reflection
             }
         }
         return sum;
+    }
+
+    void printData()
+    {
+        foreach(line; data) line.writeln;
     }
 }
 
