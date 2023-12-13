@@ -31,7 +31,9 @@ bool isValidGroup(Spring[] springs)
     return springs.all!(s => s.isValidGroupContent);
 }
 
-size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
+alias amountOfPossibleArrangements = memoize!amountOfPossibleArrangementsImpl;
+
+size_t amountOfPossibleArrangementsImpl(Spring[] springs, size_t[] groupings)
 {
     const width = groupings.sum + groupings.length - 1;
     size_t sum = 0;
@@ -52,7 +54,7 @@ size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
                 sum += amountOfPossibleArrangements(springs[endIndex + 1 .. $], groupings[1 .. $]);
             }
         }
-        if(springs[i].isFunctioning == damaged)
+                if(springs[i].isFunctioning == damaged)
         {
             break;
         }
@@ -62,14 +64,16 @@ size_t amountOfPossibleArrangements(Spring[] springs, size_t[] groupings)
 
 class SpringLine
 {
+    enum copies = 5;
+
     this(string line)
     {
         auto groups = line.splitter(' ').array;
-        foreach(spring; groups[0])
+        foreach(spring; iota(0, copies).map!(_ => groups[0]).joiner("?"))
         {
-            springs ~= new Spring(spring);
+            springs ~= new Spring(spring.to!char);
         }
-        groupings = groups[1].splitter(',').map!(g => g.to!size_t).array;
+        groupings = iota(0, copies).map!(_ => groups[1]).joiner(",").array.splitter(',').map!(g => g.to!size_t).array;
     }
 
     Spring[] springs;
@@ -85,5 +89,6 @@ void main()
 {
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0);
     auto springLines = lines.map!(l => new SpringLine(l));
-    springLines.map!(s => s.amountOfPossibleArrangements).sum.writeln;
+    auto result = springLines.map!(s => s.amountOfPossibleArrangements).array;
+    result.sum.writeln;
 }
