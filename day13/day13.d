@@ -11,40 +11,36 @@ class Reflection
 
     size_t getHorizontalMirrorLine()
     {
-        size_t sum = 0;
         for(int c = 1; c < data.length; c++)
         {
             const boundary = min(c, data.length - c);
-            bool reflectionFound = true;
+            int smudges;
             for(int i = 0; i < boundary; i++)
             {
                 const lineA = data[c - i - 1];
                 const lineB = data[c + i];
-                if(lineA != lineB)
+                for(int j = 0; j < lineA.length; j++)
                 {
-                    reflectionFound = false;
-                    break;
+                    if(lineA[j] != lineB[j])
+                    {
+                        smudges++;
+                        if(smudges > 1) break;
+                    }
                 }
             }
-            if(reflectionFound)
+            if(smudges == 1)
             {
-                sum += c; 
+                return c; 
             }
         }
-        if(sum == 0)
-        {
-            printData;
-            writeln;
-        }
-        return sum;
+        return 0;
     }
 
     size_t getVerticalMirrorLine()
     {
-        size_t sum = 0;
         for(int c = 1; c < data[0].length; c++)
         {
-            bool reflectionFound = true;
+            int smudges;
             foreach(line; data)
             {
                 const boundary = min(c, line.length - c);
@@ -52,18 +48,18 @@ class Reflection
                 {
                     if(line[c - i - 1] != line[c + i])
                     {
-                        reflectionFound = false; 
-                        break;
+                        smudges++;
+                        if(smudges > 1) break;
                     }
                 }
-                if(!reflectionFound) break;
+                if(smudges > 1) break;
             }
-            if(reflectionFound)
+            if(smudges == 1)
             {
-                sum += c;
+                return c; 
             }
         }
-        return sum;
+        return 0;
     }
 
     void printData()
