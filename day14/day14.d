@@ -123,20 +123,6 @@ size_t state(Boulder[] boulders)
 {
     auto sortedState = boulders.filter!(b => !b.isStatic).map!(b => b.state).array.sort.array;
     return hashCode(sortedState).toSizeT;
-    size_t product = 3;
-    foreach(state; boulders.filter!(b => !b.isStatic).map!(b => b.state))
-    {
-        auto previous = product;
-        product *= state;
-        if(product == 0) 
-        {
-            previous.write;
-            '*'.write;
-            writeln(state);
-            break;
-        }
-    }
-    return product;
 }
 
 class Loop
