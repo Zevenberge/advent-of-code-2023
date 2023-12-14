@@ -1,4 +1,5 @@
 import std;
+import std.digest.murmurhash;
 
 struct Coordinate
 {
@@ -22,18 +23,28 @@ class Boulder
         return rock == '#';
     }
 
-    void moveToY(size_t y) pure
-    {
-        this.coordinate.y = y;
-    }
-
     size_t weight(size_t platformSize) pure const
     {
         if(isStatic) return 0;
         return platformSize - coordinate.y;
     }
+
+    size_t state() @property pure const
+    {
+        auto hash = hashCode([coordinate.x, coordinate.y]);
+        return hash.toSizeT;
+    }
 }
 
+alias hashCode = digest!(MurmurHash3!32, size_t[]);
+size_t toSizeT(ubyte[4] hash) pure
+{
+    size_t result = hash[0];
+    result |= hash[1] << 8;
+    result |= hash[2] << 16; 
+    result |= hash[3] << 24;
+    return result;
+}
 enum emptySpace = '.';
 
 Boulder[] boulders(string[] lines)
@@ -72,9 +83,16 @@ alias moveDown = move!("y", Direction.ascending);
 alias moveLeft = move!("x", Direction.descending);
 alias moveRight = move!("x", Direction.ascending);
 
-Boulder[] move(string property, Direction direction)(Boulder[] series)
+Boulder[] move(string property, Direction direction)(Boulder[] series, size_t gridSize)
 {
-    size_t top;
+    static if(direction == Direction.descending)
+    {
+        size_t top = 0;
+    }
+    else
+    {
+        size_t top = gridSize -1;
+    }
     foreach(boulder; series)
     {
         if(boulder.isStatic)
@@ -92,18 +110,82 @@ Boulder[] move(string property, Direction direction)(Boulder[] series)
 
 alias Set = bool[Coordinate];
 
-Boulder[] rotate(Boulder[] boulders)
+Boulder[] rotate(Boulder[] boulders, size_t gridSize)
 {
-    boulders.byColumn.each!moveUp;
-    boulders.byRow.each!moveLeft;
-    boulders.byColumnDesc.each!moveDown;
-    boulders.byRowDesc.each!moveRight;
+    boulders.byColumn.each!(c => c.moveUp(gridSize));
+    boulders.byRow.each!(r => r.moveLeft(gridSize));
+    boulders.byColumnDesc.each!(c => c.moveDown(gridSize));
+    boulders.byRowDesc.each!(r => r.moveRight(gridSize));
     return boulders;
 }
 
 size_t state(Boulder[] boulders)
 {
-    return boulders.filter!(b => !b.isStatic).map!(b => b.coordinate.x * 101 + b.coordinate.y).fold!((a, b) => a*b);
+    auto sortedState = boulders.filter!(b => !b.isStatic).map!(b => b.state).array.sort.array;
+    return hashCode(sortedState).toSizeT;
+    size_t product = 3;
+    foreach(state; boulders.filter!(b => !b.isStatic).map!(b => b.state))
+    {
+        auto previous = product;
+        product *= state;
+        if(product == 0) 
+        {
+            previous.write;
+            '*'.write;
+            writeln(state);
+            break;
+        }
+    }
+    return product;
+}
+
+class Loop
+{
+    bool[size_t] previousStates;
+
+    bool hasStartedLoop;
+    size_t beginOfLoop;
+    size_t loopSize;
+    bool hasFinishedLoop;
+
+    bool contains(size_t state)
+    {
+        if(state in previousStates)
+        {
+            if(hasFinishedLoop) return true;
+            if(hasStartedLoop)
+            {
+                loopSize += 1;
+                if(state == beginOfLoop)
+                {
+                    hasFinishedLoop = true;
+                }
+            }
+            else
+            {
+                hasStartedLoop = true;
+                beginOfLoop = state;
+            }
+            return true;
+        }
+        previousStates[state] = true;
+        return false;
+    }
+}
+
+void print(Boulder[] boulders, size_t gridSize)
+{
+    for(size_t y = 0; y < gridSize; y++)
+    {
+        for(size_t x = 0; x < gridSize; x++)
+        {
+            auto thisBoulder = boulders.filter!(b => b.coordinate == Coordinate(x, y));
+            if(thisBoulder.empty) '.'.write;
+            else thisBoulder.front.rock.write;
+        }
+        writeln;
+    }
+    writeln;
 }
 
 void main()
@@ -111,13 +193,21 @@ void main()
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     auto gridSize = lines.length;
     auto boulders = lines.boulders;
-    bool[size_t] previousState;
-    for(size_t i = 0; i < 1_000_000_000 ; i++)
+
+    auto loop = new Loop();
+    enum limit = 1_000_000_000;
+    for(size_t i = 0; i < limit ; i++)
     {
-        boulders.rotate;
+        boulders.rotate(gridSize);
         auto newState = boulders.state;
-        if(newState in previousState) break;
-        else previousState[newState] = true;
+        if(loop.contains(newState) && loop.hasFinishedLoop)
+        {
+            auto remainder = (limit - i - 1) % loop.loopSize;
+            if(remainder == 0)
+            {
+                break;
+            }
+        }
     }
     boulders.map!(b => b.weight(gridSize)).sum.writeln;
 }
