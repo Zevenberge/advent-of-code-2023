@@ -140,6 +140,11 @@ class Grid
     {
         return squares.values.filter!(s => s.energized).count;
     }
+
+    void reset()
+    {
+        squares.values.each!(s => s.energized = false);
+    }
 }
 
 alias Set = bool[size_t];
@@ -182,11 +187,26 @@ Grid parse(string[] grid)
     return result;
 }
 
+struct Configuration
+{
+    Coordinate start;
+    Direction direction;
+}
+
 void main()
 {
     auto lines = File("input").byLineCopy().filter!(line => line.length > 0).array;
     auto grid = lines.parse;
-    auto path = new Path(grid);
-    path.walk;
-    grid.energizedSquares.writeln;
+    size_t energizedSquares = 0;
+    auto configs = iota(0, grid.width).map!(x => Configuration(Coordinate(x, -1), Direction.downward)).array;
+    configs ~= Configuration(Coordinate(-1, 0), Direction.rightward);
+    configs ~= Configuration(Coordinate(grid.width, 0), Direction.leftward);
+    foreach(config; configs)
+    {
+        auto path = new Path(grid);
+        path.walk(config.start, config.direction);
+        energizedSquares = max(energizedSquares, grid.energizedSquares);
+        grid.reset;
+    }
+    energizedSquares.writeln;
 }
